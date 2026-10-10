@@ -16,4 +16,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ItemsPriceBreakup.Application\ItemsPriceBreakup.Application.csproj" />
+    <ProjectReference Include="..\ItemsPriceBreakup.Domain\ItemsPriceBreakup.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

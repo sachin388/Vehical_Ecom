@@ -1,15 +1,21 @@
+// DealerService.API/Program.cs
+using Dealer.Application.Services;
+using DealerService.Application.Interfaces;
+using DealerService.Application.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Register concrete implementations in the composition root.
+// Replace these example registrations with your actual Infrastructure classes.
+builder.Services.AddScoped<DealerApplicationService, DealerApplicationService>();
+builder.Services.AddScoped<IDealerInventoryApplicationService, DealerInventoryApplicationService>();
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -17,9 +23,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();

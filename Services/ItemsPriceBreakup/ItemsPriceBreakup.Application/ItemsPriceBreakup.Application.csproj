@@ -17,4 +17,8 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ItemsPriceBreakup.Domain\ItemsPriceBreakup.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
