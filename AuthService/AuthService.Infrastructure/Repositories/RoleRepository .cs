@@ -1,4 +1,4 @@
-﻿using AuthService.Application.Interfaces;
+using AuthService.Application.Interfaces;
 using AuthService.Domain.Entities;
 using AuthService.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -32,9 +32,9 @@ namespace AuthService.Infrastructure.Repositories
             {
                 var result = await _context.Roles.AddAsync(role);
             }
-            catch( Exception ex)
+            catch (Exception)
             {
-                throw ex;
+                throw;
             }
         }
     }

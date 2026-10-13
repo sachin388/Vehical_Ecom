@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
+using Confluent.Kafka;
+using ItemsPriceBreakup.Application.Interfaces;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;

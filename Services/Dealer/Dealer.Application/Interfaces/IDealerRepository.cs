@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 
 namespace Dealer.Application.Interfaces
 {
+    using Dealer = global::Dealer.Domain.Entities.Dealer;
+
     public interface IDealerRepository
     {
         Task<Dealer?> GetByIdAsync(long id, CancellationToken ct = default);

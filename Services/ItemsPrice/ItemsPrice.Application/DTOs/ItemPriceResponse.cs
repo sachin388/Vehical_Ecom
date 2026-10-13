@@ -1,4 +1,5 @@
-﻿using System;
+using ItemsPrice.Domain.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;

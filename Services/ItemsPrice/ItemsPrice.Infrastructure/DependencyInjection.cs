@@ -1,5 +1,8 @@
-﻿using ItemsPrice.Infrastructure.Interfaces;
+using ItemsPrice.Infrastructure.Interfaces;
+using ItemsPrice.Infrastructure.Messaging;
 using ItemsPrice.Infrastructure.Persistence;
+using ItemsPrice.Infrastructure.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

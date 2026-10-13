@@ -1,4 +1,4 @@
-﻿using Dealer.Application.DTOs;
+using Dealer.Application.DTOs;
 using Dealer.Application.Interfaces;
 using Dealer.Domain.Entities;
 using Dealer.Domain.Enums;
@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 
 namespace Dealer.Application.Services
 {
+    using Dealer = global::Dealer.Domain.Entities.Dealer;
+
     public class DealerApplicationService
     {
         private readonly IDealerRepository _dealers;
@@ -173,6 +175,62 @@ namespace Dealer.Application.Services
             }
 
             return null; // API should map this to HTTP 409 Conflict.
+        }
+
+        public async Task<DealerResponse?> GetDealerByIdAsync(
+            long dealerId, CancellationToken ct = default)
+        {
+            var dealer = await _dealers.GetByIdAsync(dealerId, ct);
+            if (dealer is null) return null;
+
+            return new DealerResponse
+            {
+                Id = dealer.Id,
+                DealerCode = dealer.DealerCode,
+                Name = dealer.Name,
+                Email = dealer.Email,
+                Phone = dealer.Phone,
+                Status = dealer.Status
+            };
+        }
+
+        public async Task<DealerAssignmentResponse?> UpdateAssignmentStatusAsync(
+            Guid salesOrderId, string status, CancellationToken ct = default)
+        {
+            var assignment = await _inventory.GetAssignmentByOrderIdAsync(salesOrderId, ct);
+            if (assignment is null) return null;
+
+            assignment.Status = status;
+            await _inventory.SaveChangesAsync(ct);
+
+            return new DealerAssignmentResponse
+            {
+                AssignmentId = assignment.Id,
+                SalesOrderId = assignment.SalesOrderId,
+                DealerId = assignment.DealerId,
+                SKU = assignment.SKU,
+                Quantity = assignment.Quantity,
+                Status = assignment.Status,
+                AssignedAtUtc = assignment.AssignedAtUtc
+            };
+        }
+
+        public async Task<DealerAssignmentResponse?> GetAssignmentByOrderIdAsync(
+            Guid salesOrderId, CancellationToken ct = default)
+        {
+            var assignment = await _inventory.GetAssignmentByOrderIdAsync(salesOrderId, ct);
+            if (assignment is null) return null;
+
+            return new DealerAssignmentResponse
+            {
+                AssignmentId = assignment.Id,
+                SalesOrderId = assignment.SalesOrderId,
+                DealerId = assignment.DealerId,
+                SKU = assignment.SKU,
+                Quantity = assignment.Quantity,
+                Status = assignment.Status,
+                AssignedAtUtc = assignment.AssignedAtUtc
+            };
         }
 
         private static void ValidateAvailability(DealerAvailabilityRequest request)

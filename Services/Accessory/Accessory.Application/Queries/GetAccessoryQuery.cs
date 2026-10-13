@@ -4,9 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Test
+namespace Accessory.Application.Queries
 {
-    internal class FileName
+    public class GetAccessoryQuery
     {
+        public long AccessoryId { get; set; }
     }
+
 }

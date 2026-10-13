@@ -8,13 +8,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="7.7.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.31" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Dealer\Dealer.Application\Dealer.Application.csproj" />
-    <ProjectReference Include="..\..\Dealer\Dealer.Infrastructure\Dealer.Infrastructure.csproj" />
     <ProjectReference Include="..\ItemsPrice.Application\ItemsPrice.Application.csproj" />
+    <ProjectReference Include="..\ItemsPrice.Infrastructure\ItemsPrice.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,7 @@
-﻿using ItemsPriceBreakup.Application.Interfaces;
+using ItemsPriceBreakup.Application.Interfaces;
 using ItemsPriceBreakup.Domain.Entities;
 using ItemsPriceBreakup.Infrastruture.Persistence;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;

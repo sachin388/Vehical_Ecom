@@ -1,4 +1,5 @@
-﻿using System;
+using ItemsPrice.Domain.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -32,4 +33,5 @@ namespace ItemsPrice.Domain.Entities
 
         public ItemPrice? ItemPrice { get; set; }
     }
+}
 

@@ -1,4 +1,4 @@
-﻿using ItemsPrice.Domain.Entities;
+using ItemsPrice.Domain.Entities;
 using ItemsPrice.Domain.Enums;
 using System;
 using System.Collections.Generic;
@@ -49,7 +49,6 @@ namespace ItemsPrice.Infrastructure.Interfaces
 
         Task SaveChangesAsync(
             CancellationToken cancellationToken = default);
-        Task<(IEnumerable<ItemPrice> items, int totalCount)> SearchAsync(int? itemId, string v, PriceStatus? status, int page, int pageSize, string sortBy, bool descending, CancellationToken cancellationToken);
     }
 
 }

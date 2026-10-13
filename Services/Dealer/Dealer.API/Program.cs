@@ -1,7 +1,5 @@
-// DealerService.API/Program.cs
+using Dealer.Application.Interfaces;
 using Dealer.Application.Services;
-using DealerService.Application.Interfaces;
-using DealerService.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

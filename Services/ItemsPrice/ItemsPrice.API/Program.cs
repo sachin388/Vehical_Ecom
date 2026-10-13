@@ -1,10 +1,9 @@
-using Microsoft.OpenApi.Models;
-
-
+using ItemsPrice.Application.Services.NewFolder;
+using ItemsPrice.Infrastructure;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,8 +39,8 @@ builder.Services.AddSwaggerGen(options =>
         });
 });
 
-//builder.Services.AddItemPriceInfrastructure(
- //   builder.Configuration);
+builder.Services.AddItemPriceInfrastructure(
+    builder.Configuration);
 
 builder.Services.AddScoped<ItemPriceApplicationService>();
 
