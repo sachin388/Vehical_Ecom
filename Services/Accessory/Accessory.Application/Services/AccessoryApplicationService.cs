@@ -1,13 +1,19 @@
-﻿using Accessory.Application.DTOs;
+using Accessory.Application.DTOs;
 using Accessory.Application.Interfaces;
+using Accessory.Domain.Entities;
+using Accessory.Domain.Enums;
+using Accessory.Domain.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Accessory.Application.Services
 {
+    using Accessory = Accessory.Domain.Entities.Accessory;
+
     public class AccessoryApplicationService
     {
         private readonly IAccessoryRepository _repository;

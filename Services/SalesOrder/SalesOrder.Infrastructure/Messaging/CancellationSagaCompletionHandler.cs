@@ -1,12 +1,19 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SalesOrder.Domain.Entities;
+using SalesOrder.Domain.Enums;
+using SalesOrder.Infrastructure.Persistence;
 
-namespace SalesOrder.Infrastructure.IntegrationEvents
+namespace SalesOrder.Infrastructure.Messaging.IntegrationEvents
 {
+    using SalesOrder = SalesOrder.Domain.Entities.SalesOrder;
+
     public abstract class CancellationSagaCompletionHandler
     {
         protected const string ConsumerName = "SalesOrderService";
@@ -127,5 +134,4 @@ namespace SalesOrder.Infrastructure.IntegrationEvents
             await tx.CommitAsync(ct);
         }
     }
-
 }

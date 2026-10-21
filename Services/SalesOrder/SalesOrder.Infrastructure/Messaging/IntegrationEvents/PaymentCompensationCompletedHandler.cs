@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
+using SalesOrder.Application.IntegrationEvents;
 using SalesOrder.Infrastructure.Persistence;
-using SalesOrder.Infrastructure.Messaging;
+
 namespace SalesOrder.Infrastructure.Messaging.IntegrationEvents
 {
     public sealed class PaymentCompensationCompletedHandler
-    : CancellationSagaCompletionHandler
+        : CancellationSagaCompletionHandler
     {
         public PaymentCompensationCompletedHandler(
             SalesOrderDbContext db)
@@ -29,5 +28,3 @@ namespace SalesOrder.Infrastructure.Messaging.IntegrationEvents
                 ct);
     }
 }
-
-

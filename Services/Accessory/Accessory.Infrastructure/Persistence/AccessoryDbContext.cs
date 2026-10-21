@@ -1,12 +1,15 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
+using Accessory.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Accessory.Infrastructure.Persistence
 {
+    using Accessory = Accessory.Domain.Entities.Accessory;
+
     public class AccessoryDbContext : DbContext
     {
         public AccessoryDbContext(

@@ -1,20 +1,29 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using SalesOrder.Application.Interfaces;
+using SalesOrder.Domain.Entities;
+using SalesOrder.Domain.Enums;
 
 namespace SalesOrder.Application.Services
 {
-    
+    using SalesOrder = SalesOrder.Domain.Entities.SalesOrder;
 
     public sealed class OrderCancellationService
     {
-        private readonly SalesOrderDbContext _db;
+        private readonly ISalesOrderRepository _orders;
+        private readonly IOutboxWriter _outbox;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public OrderCancellationService(SalesOrderDbContext db)
+        public OrderCancellationService(
+            ISalesOrderRepository orders,
+            IOutboxWriter outbox,
+            IUnitOfWork unitOfWork)
         {
-            _db = db;
+            _orders = orders;
+            _outbox = outbox;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task RequestCancellationAsync(
@@ -23,21 +32,30 @@ namespace SalesOrder.Application.Services
             string reason,
             CancellationToken ct)
         {
-            await using var tx =
-                await _db.Database.BeginTransactionAsync(ct);
+            await _unitOfWork.BeginTransactionAsync(ct);
 
-            // 1. Load the order and validate customer ownership.
-            // 2. Check whether the order can be cancelled.
-            // 3. Determine whether payment compensation is required.
-            // 4. Determine whether dealer stock release is required.
-            // 5. Create and persist the OrderCancellationSaga.
-            // 6. Add PaymentCompensationRequested to the Outbox.
-            // 7. Add DealerReleaseRequested to the Outbox.
-            // 8. If no compensation is required, complete cancellation.
-            // 9. Save all changes and commit the transaction.
+            var order = await _orders.GetByPublicIdAsync(orderId, ct)
+                ?? throw new KeyNotFoundException("Sales order was not found.");
 
-            await _db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
+            if (!string.Equals(order.CustomerId, customerId, StringComparison.Ordinal))
+                throw new UnauthorizedAccessException("Customer does not own this order.");
+
+            if (order.Status is SalesOrderStatus.Completed or SalesOrderStatus.Cancelled)
+                throw new InvalidOperationException($"Order in {order.Status} cannot be cancelled.");
+
+            var previous = order.Status;
+            order.ChangeStatus(SalesOrderStatus.Cancelled);
+
+            await _outbox.AddAsync("OrderCancellationRequested", order.PublicId.ToString(), new
+            {
+                SalesOrderId = order.PublicId,
+                CustomerId = customerId,
+                Reason = reason,
+                PreviousStatus = previous.ToString()
+            }, ct);
+
+            await _orders.SaveChangesAsync(ct);
+            await _unitOfWork.CommitTransactionAsync(ct);
         }
     }
 }

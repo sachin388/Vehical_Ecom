@@ -1,10 +1,13 @@
-﻿using SalesOrder.Infrastructure.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using SalesOrder.Application.Interfaces;
+using SalesOrder.Domain.Entities;
+using SalesOrder.Infrastructure.Persistence;
 
 namespace SalesOrder.Infrastructure.Messaging
 {

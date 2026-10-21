@@ -1,43 +1,63 @@
+using System;
+using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using SalesOrder.Application.DTOs;
 using SalesOrder.Application.Services;
-using System.Collections.Generic;
-using System.Reflection.Emit;
-using System.Security.Claims;
 
 namespace SalesOrder.API.Controllers
 {
-    public sealed class SalesOrderDbContext(DbContextOptions<SalesOrderDbContext> options)
-      : DbContext(options)
+    [ApiController]
+    [Route("api/sales-orders")]
+    [Authorize]
+    public sealed class SalesOrdersController : ControllerBase
     {
-        public DbSet<SalesOrder> SalesOrders => Set<SalesOrder>();
-        public DbSet<SalesOrderLine> SalesOrderLines => Set<SalesOrderLine>();
-        public DbSet<SalesOrderHistory> SalesOrderHistory => Set<SalesOrderHistory>();
+        private readonly ISalesOrderApplicationService _service;
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        public SalesOrdersController(ISalesOrderApplicationService service)
         {
-            modelBuilder.Entity<SalesOrder>().HasKey(x => x.Id);
-            modelBuilder.Entity<SalesOrder>().HasIndex(x => x.PublicId).IsUnique();
-            modelBuilder.Entity<SalesOrder>().HasIndex(x => x.OrderNumber).IsUnique();
-            modelBuilder.Entity<SalesOrder>().Property(x => x.RowVersion).IsRowVersion();
-            modelBuilder.Entity<SalesOrder>().Property(x => x.GrandTotalSnapshot).HasPrecision(18, 2);
-            modelBuilder.Entity<SalesOrder>().HasMany(x => x.Lines).WithOne()
-                .HasForeignKey(x => x.SalesOrderId).OnDelete(DeleteBehavior.Cascade);
+            _service = service;
+        }
 
-            modelBuilder.Entity<SalesOrderLine>().Property(x => x.UnitPriceSnapshot).HasPrecision(18, 2);
-            modelBuilder.Entity<SalesOrderLine>().Property(x => x.DiscountSnapshot).HasPrecision(18, 2);
-            modelBuilder.Entity<SalesOrderLine>().Property(x => x.TaxSnapshot).HasPrecision(18, 2);
-            modelBuilder.Entity<SalesOrderLine>().Property(x => x.LineTotalSnapshot).HasPrecision(18, 2);
+        [HttpPost]
+        public async Task<IActionResult> Create(
+            [FromBody] CreateSalesOrderRequest request,
+            CancellationToken ct)
+        {
+            var customerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub")
+                ?? "anonymous";
 
-            modelBuilder.Entity<SalesOrderHistory>().HasIndex(x => new { x.SalesOrderPublicId, x.ChangedAtUtc });
-            modelBuilder.Entity<SalesOrderHistory>().Property(x => x.Reason).HasMaxLength(500);
+            var result = await _service.CreateAsync(customerId, request, ct);
+            return CreatedAtAction(nameof(Get), new { id = result.Id }, result);
+        }
+
+        [HttpGet("{id:guid}")]
+        public async Task<IActionResult> Get(
+            Guid id,
+            CancellationToken ct)
+        {
+            var result = await _service.GetAsync(id, ct);
+            if (result is null)
+                return NotFound();
+
+            return Ok(result);
+        }
+
+        [HttpPost("{id:guid}/cancel")]
+        public async Task<IActionResult> Cancel(
+            Guid id,
+            [FromBody] CancelSalesOrderRequest request,
+            CancellationToken ct)
+        {
+            var customerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub")
+                ?? "anonymous";
+
+            await _service.CancelAsync(id, customerId, request.Reason, ct);
+            return NoContent();
         }
     }
-
-
-
-
 }

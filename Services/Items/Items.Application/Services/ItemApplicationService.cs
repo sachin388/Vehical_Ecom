@@ -1,4 +1,4 @@
-﻿using Items.Application.Commands;
+using Items.Application.Commands;
 using Items.Application.DTOs;
 using Items.Application.Interfaces;
 using Items.Application.Queries;
@@ -87,7 +87,7 @@ namespace Items.Application.Services
                 item.Id,
                 cancellationToken);
 
-            return MapToResponse(createdItem!);
+            return MapToResponse(createdItem ?? item);
         }
 
         public async Task<ItemResponse?> GetByIdAsync(

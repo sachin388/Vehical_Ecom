@@ -1,12 +1,19 @@
-﻿using Accessory.Infrastructure.Persistence;
+using Accessory.Application.Interfaces;
+using Accessory.Domain.Entities;
+using Accessory.Domain.Enums;
+using Accessory.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Accessory.Infrastructure.Repositories
 {
+    using Accessory = Accessory.Domain.Entities.Accessory;
+
     public class AccessoryRepository : IAccessoryRepository
     {
         private readonly AccessoryDbContext _context;

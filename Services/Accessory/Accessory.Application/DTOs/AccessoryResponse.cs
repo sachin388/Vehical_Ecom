@@ -1,8 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Accessory.Domain.Enums;
 
 namespace Accessory.Application.DTOs
 {
@@ -31,5 +29,4 @@ namespace Accessory.Application.DTOs
         public List<AccessoryCompatibilityResponse> Compatibilities { get; set; } =
             new List<AccessoryCompatibilityResponse>();
     }
-
 }

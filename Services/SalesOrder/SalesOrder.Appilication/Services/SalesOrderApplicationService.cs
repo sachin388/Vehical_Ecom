@@ -1,14 +1,19 @@
-﻿using SalesOrder.Application.DTOs;
-using SalesOrder.Infrastructure.Interfaces;
+using SalesOrder.Application.DTOs;
+using SalesOrder.Application.Interfaces;
+using SalesOrder.Domain.Entities;
+using SalesOrder.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SalesOrder.Application.Services
 {
-    public sealed class SalesOrderApplicationService
+    using SalesOrder = SalesOrder.Domain.Entities.SalesOrder;
+
+    public sealed class SalesOrderApplicationService : ISalesOrderApplicationService
     {
         private readonly ISalesOrderRepository _orders;
         private readonly IPricingClient _pricing;
@@ -94,6 +99,9 @@ namespace SalesOrder.Application.Services
             var order = await _orders.GetByPublicIdAsync(publicId, ct);
             return order is null ? null : Map(order);
         }
+
+        public Task<SalesOrderResponse?> GetByPublicIdAsync(Guid publicId, CancellationToken ct = default)
+            => GetAsync(publicId, ct);
 
         public async Task CancelAsync(
             Guid publicId, string customerId, string reason, CancellationToken ct)

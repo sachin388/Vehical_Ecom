@@ -1,11 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using Accessory.Domain.Entities;
+using Accessory.Domain.Enums;
 
 namespace Accessory.Application.Interfaces
 {
+    using Accessory = Accessory.Domain.Entities.Accessory;
+
     public interface IAccessoryRepository
     {
         Task<Accessory?> GetByIdAsync(
@@ -34,5 +37,4 @@ namespace Accessory.Application.Interfaces
         Task SaveChangesAsync(
             CancellationToken cancellationToken = default);
     }
-
 }

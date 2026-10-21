@@ -1,5 +1,11 @@
-﻿using Accessory.Infrastructure.Persistence;
+using Accessory.Application.Interfaces;
+using Accessory.Application.Services;
+using Accessory.Infrastructure.Messaging;
+using Accessory.Infrastructure.Persistence;
 using Accessory.Infrastructure.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Accessory.Infrastructure
 {
