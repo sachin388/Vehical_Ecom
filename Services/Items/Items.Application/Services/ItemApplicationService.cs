@@ -69,7 +69,7 @@ namespace Items.Application.Services
 
             var vehicleCreatedEvent = new VehicleCreatedEvent(
                 Guid.NewGuid(),
-                item.Id,
+                item.ItemId,
                 item.SKU,
                 item.Name,
                 item.VehicleMakeId,
@@ -84,7 +84,7 @@ namespace Items.Application.Services
                 cancellationToken);
 
             var createdItem = await _repository.GetByIdAsync(
-                item.Id,
+                item.ItemId,
                 cancellationToken);
 
             return MapToResponse(createdItem ?? item);
@@ -128,7 +128,7 @@ namespace Items.Application.Services
 
             var vehicleUpdatedEvent = new VehicleUpdatedEvent(
                 Guid.NewGuid(),
-                item.Id,
+                item.ItemId,
                 item.SKU,
                 item.Name,
                 item.UpdatedAtUtc.Value);
@@ -139,7 +139,7 @@ namespace Items.Application.Services
                 cancellationToken);
 
             var updatedItem = await _repository.GetByIdAsync(
-                item.Id,
+                item.ItemId,
                 cancellationToken);
 
             return updatedItem is null
@@ -172,7 +172,7 @@ namespace Items.Application.Services
 
             var statusEvent = new VehicleAvailabilityChangedEvent(
                 Guid.NewGuid(),
-                item.Id,
+                item.ItemId,
                 oldStatus,
                 item.Status,
                 item.UpdatedAtUtc.Value);
@@ -183,7 +183,7 @@ namespace Items.Application.Services
                 cancellationToken);
 
             var updatedItem = await _repository.GetByIdAsync(
-                item.Id,
+                item.ItemId,
                 cancellationToken);
 
             return updatedItem is null
@@ -232,7 +232,7 @@ namespace Items.Application.Services
         {
             return new ItemResponse
             {
-                Id = item.Id,
+                ItemId = item.ItemId,
                 SKU = item.SKU,
                 Name = item.Name,
 

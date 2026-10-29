@@ -1,6 +1,6 @@
 @Imtes.API_HostAddress = http://localhost:5022
 
-GET {{Imtes.API_HostAddress}}/weatherforecast/
+GET {{Imtes.API_HostAddress}}/ItemsController/
 Accept: application/json
 
 ###

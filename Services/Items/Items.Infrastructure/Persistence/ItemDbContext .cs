@@ -28,7 +28,7 @@ namespace Items.Infrastructure.Persistence
 
             modelBuilder.Entity<Item>(entity =>
             {
-                entity.HasKey(x => x.Id);
+                entity.HasKey(x => x.ItemId);
 
                 entity.Property(x => x.SKU)
                     .IsRequired()

@@ -9,7 +9,7 @@ namespace Items.Application.DTOs
 {
     public sealed class ItemResponse
     {
-        public int Id { get; set; }
+        public int ItemId { get; set; }
 
         public string SKU { get; set; } = string.Empty;
 

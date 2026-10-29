@@ -1,3 +1,4 @@
+using Dealer.API;
 using Dealer.Application.Interfaces;
 using Dealer.Application.Services;
 
@@ -7,9 +8,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register concrete implementations in the composition root.
-// Replace these example registrations with your actual Infrastructure classes.
-builder.Services.AddScoped<DealerApplicationService, DealerApplicationService>();
+builder.Services.AddSingleton<IDealerSelectionStrategy, DefaultDealerSelectionStrategy>();
+builder.Services.AddSingleton<IDealerRepository, InMemoryDealerRepository>();
+builder.Services.AddSingleton<IDealerInventoryRepository, InMemoryDealerInventoryRepository>();
+builder.Services.AddSingleton<IEventPublisher, NoOpEventPublisher>();
+
+builder.Services.AddScoped<DealerApplicationService>();
 builder.Services.AddScoped<IDealerInventoryApplicationService, DealerInventoryApplicationService>();
 
 var app = builder.Build();

@@ -9,7 +9,7 @@ namespace Items.Domain.Entities
 {
     public class Item
     {
-        public int Id { get; set; }
+        public int ItemId { get; set; }
 
         public string SKU { get; set; } = string.Empty;
 

@@ -65,7 +65,7 @@ namespace Imtes.API.Controllers
 
                 return CreatedAtAction(
                     nameof(GetById),
-                    new { id = result.Id },
+                    new { id = result.ItemId },
                     result);
             }
             catch (ArgumentException ex)

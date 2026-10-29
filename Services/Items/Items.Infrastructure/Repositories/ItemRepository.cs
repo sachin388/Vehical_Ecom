@@ -31,7 +31,7 @@ namespace Items.Infrastructure.Repositories
                 .Include(x => x.VehicleCategory)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
-                    x => x.Id == id,
+                    x => x.ItemId == id,
                     cancellationToken);
         }
 
