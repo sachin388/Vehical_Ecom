@@ -1,4 +1,4 @@
-using Accessory.Application.DTOs;
+﻿using Accessory.Application.DTOs;
 using Accessory.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,7 +32,7 @@ namespace Accessory.API.Controllers
         }
 
         [HttpGet("{accessoryId:long}")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<IActionResult> Get(
             long accessoryId,
             CancellationToken cancellationToken)
@@ -46,7 +46,8 @@ namespace Accessory.API.Controllers
         }
 
         [HttpGet("compatible/{itemId:int}")]
-        [Authorize]
+        [HttpGet("item/{itemId:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetCompatible(
             int itemId,
             CancellationToken cancellationToken)
@@ -94,5 +95,4 @@ namespace Accessory.API.Controllers
             return ok ? NoContent() : NotFound();
         }
     }
-
 }
