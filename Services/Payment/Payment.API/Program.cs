@@ -5,8 +5,12 @@ using Microsoft.OpenApi.Models;
 using Payment.Application.Interfaces;
 using Payment.Application.Services;
 using Payment.Infrastructure;
+using VehicleEcom.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "Payment.API");
+builder.Services.AddPlatformObservability(builder.Configuration, "Payment.API");
 
 // 1. JWT Authentication
 var jwtKey = builder.Configuration["Jwt:SecretKey"] ?? "VehicleEcommerce_SuperSecretKey_ForJwtTokenGeneration_2026!";
@@ -95,6 +99,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UsePlatformObservability();
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,8 +1,12 @@
 using Dealer.API;
 using Dealer.Application.Interfaces;
 using Dealer.Application.Services;
+using VehicleEcom.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "Dealer.API");
+builder.Services.AddPlatformObservability(builder.Configuration, "Dealer.API");
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -25,6 +29,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UsePlatformObservability();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

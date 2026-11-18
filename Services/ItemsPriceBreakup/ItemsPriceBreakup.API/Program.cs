@@ -2,8 +2,12 @@ using System.Text;
 using ItemsPriceBreakup.Infrastruture;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using VehicleEcom.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "ItemsPriceBreakup.API");
+builder.Services.AddPlatformObservability(builder.Configuration, "ItemsPriceBreakup.API");
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -39,6 +43,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UsePlatformObservability();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

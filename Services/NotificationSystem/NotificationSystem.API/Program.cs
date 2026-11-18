@@ -1,4 +1,10 @@
+using VehicleEcom.Observability;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Add OpenTelemetry Observability (Elastic & Kibana APM)
+builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "NotificationSystem.API");
+builder.Services.AddPlatformObservability(builder.Configuration, "NotificationSystem.API");
 
 // Add services to the container.
 
@@ -17,6 +23,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UsePlatformObservability();
 
 app.UseAuthorization();
 

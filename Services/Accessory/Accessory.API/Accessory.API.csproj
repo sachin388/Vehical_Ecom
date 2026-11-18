@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Accessory.Application\Accessory.Application.csproj" />
     <ProjectReference Include="..\Accessory.Infrastructure\Accessory.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\VehicleEcom.Observability\VehicleEcom.Observability.csproj" />
   </ItemGroup>
 
 </Project>

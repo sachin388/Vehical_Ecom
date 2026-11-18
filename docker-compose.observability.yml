@@ -1,0 +1,88 @@
+version: '3.8'
+
+networks:
+  observability-network:
+    driver: bridge
+
+volumes:
+  elasticsearch-data:
+    driver: local
+
+services:
+  # ============================================================================
+  # 1. Elasticsearch 8.13.4 - Distributed Search & Analytics Engine
+  # ============================================================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: vehicalecom-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - cluster.name=vehicalecom-observability
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - observability-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  # ============================================================================
+  # 2. Kibana 8.13.4 - APM, Tracing & Visual Dashboards UI
+  # ============================================================================
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: vehicalecom-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=vehicalecom-kibana
+      - TELEMETRY_ENABLED=false
+    ports:
+      - "5601:5601"
+    networks:
+      - observability-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -I http://localhost:5601/api/status | grep -q 'HTTP/1.1 200 OK\\|HTTP/1.1 302'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # 3. Elastic APM Server 8.13.4 - Native OpenTelemetry & APM Ingestion
+  # ============================================================================
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:8.13.4
+    container_name: vehicalecom-apm-server
+    command: >
+      apm-server -e
+        -E output.elasticsearch.hosts=["elasticsearch:9200"]
+        -E apm-server.kibana.enabled=true
+        -E apm-server.kibana.host="kibana:5601"
+        -E apm-server.host="0.0.0.0:8200"
+        -E apm-server.rum.enabled=true
+        -E apm-server.auth.anonymous.enabled=true
+        -E apm-server.data_streams.enabled=true
+    ports:
+      - "8200:8200"   # Elastic APM HTTP & OTLP HTTP receiver
+      - "4317:4317"   # OpenTelemetry gRPC receiver
+      - "4318:4318"   # OpenTelemetry HTTP receiver
+    networks:
+      - observability-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped

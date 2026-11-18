@@ -5,8 +5,12 @@ using Microsoft.IdentityModel.Tokens;
 using SalesOrder.Application.Services;
 using SalesOrder.Infrastructure;
 using SalesOrder.Infrastructure.Messaging;
+using VehicleEcom.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "SalesOrder.API");
+builder.Services.AddPlatformObservability(builder.Configuration, "SalesOrder.API");
 
 // 1. JWT Authentication
 var jwtKey = builder.Configuration["Jwt:SecretKey"] ?? "VehicleEcommerce_SuperSecretKey_ForJwtTokenGeneration_2026!";
@@ -83,6 +87,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UsePlatformObservability();
 
 app.UseAuthentication();
 app.UseAuthorization();
