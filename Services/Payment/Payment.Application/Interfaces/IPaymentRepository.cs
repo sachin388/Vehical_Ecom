@@ -12,7 +12,10 @@ namespace Payment.Application.Interfaces
     {
         Task<PaymentEntity?> GetByIdAsync(long id, CancellationToken ct = default);
         Task<PaymentEntity?> GetByPaymentReferenceAsync(string paymentReference, CancellationToken ct = default);
+        Task<PaymentEntity?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default);
         Task<IReadOnlyList<PaymentEntity>> GetBySalesOrderIdAsync(Guid salesOrderId, CancellationToken ct = default);
+        Task<PaymentRefund?> GetRefundByReferenceAsync(string refundReference, CancellationToken ct = default);
+        Task<PaymentRefund?> GetRefundBySagaIdAsync(Guid sagaId, CancellationToken ct = default);
         Task AddAsync(PaymentEntity payment, CancellationToken ct = default);
         Task AddRefundAsync(PaymentRefund refund, CancellationToken ct = default);
         Task SaveChangesAsync(CancellationToken ct = default);

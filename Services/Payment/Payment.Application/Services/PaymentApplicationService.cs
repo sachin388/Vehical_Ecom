@@ -72,9 +72,35 @@ namespace Payment.Application.Services
             var surl = string.IsNullOrWhiteSpace(request.SuccessUrl) ? defaultSuccessUrl : request.SuccessUrl;
             var furl = string.IsNullOrWhiteSpace(request.FailureUrl) ? defaultFailureUrl : request.FailureUrl;
 
+            // 1. Idempotency Check: prevent duplicate payment creation for the same idempotency key
+            var idempotencyKey = string.IsNullOrWhiteSpace(request.IdempotencyKey)
+                ? $"IDEMP-SO-{request.SalesOrderId:N}"
+                : request.IdempotencyKey.Trim();
+
+            var existingPayment = await _repository.GetByIdempotencyKeyAsync(idempotencyKey, ct);
+            if (existingPayment is not null)
+            {
+                // Verify parameters match to detect conflicting requests with the same key
+                if (existingPayment.SalesOrderId != request.SalesOrderId || existingPayment.Amount != request.Amount)
+                {
+                    throw new InvalidOperationException(
+                        $"Idempotency key '{idempotencyKey}' was already used for a different order or amount.");
+                }
+
+                _logger.LogInformation("Idempotent request: returning existing payment {PaymentReference} for key {IdempotencyKey}.",
+                    existingPayment.PaymentReference, idempotencyKey);
+
+                return BuildInitiateResponse(
+                    existingPayment,
+                    merchantKey,
+                    merchantSalt,
+                    paymentUrl,
+                    surl,
+                    furl,
+                    request);
+            }
+
             var txnId = $"TXN{DateTime.UtcNow:yyyyMMddHHmmss}{Guid.NewGuid():N}"[..24].ToUpperInvariant();
-            var idempotencyKey = $"IDEMP-{Guid.NewGuid():N}";
-            var formattedAmount = request.Amount.ToString("F2", CultureInfo.InvariantCulture);
             var customerId = string.IsNullOrWhiteSpace(request.CustomerId) ? $"CUST-{Guid.NewGuid():N}"[..12] : request.CustomerId;
 
             var payment = new PaymentEntity
@@ -101,52 +127,26 @@ namespace Payment.Application.Services
             });
 
             await _unitOfWork.BeginTransactionAsync(ct);
-            await _repository.AddAsync(payment, ct);
-            await _unitOfWork.CommitTransactionAsync(ct);
-
-            var hash = _payUGatewayService.GeneratePaymentHash(
-                key: merchantKey,
-                txnId: txnId,
-                amount: request.Amount,
-                productInfo: request.ProductInfo.Trim(),
-                firstName: request.CustomerName.Trim(),
-                email: request.CustomerEmail.Trim(),
-                udf1: request.Udf1,
-                udf2: request.Udf2,
-                udf3: request.Udf3,
-                udf4: request.Udf4,
-                udf5: request.Udf5,
-                salt: merchantSalt);
-
-            var formParameters = new Dictionary<string, string>
+            try
             {
-                ["key"] = merchantKey,
-                ["txnid"] = txnId,
-                ["amount"] = formattedAmount,
-                ["productinfo"] = request.ProductInfo.Trim(),
-                ["firstname"] = request.CustomerName.Trim(),
-                ["email"] = request.CustomerEmail.Trim(),
-                ["phone"] = request.CustomerPhone.Trim(),
-                ["surl"] = surl,
-                ["furl"] = furl,
-                ["hash"] = hash,
-                ["udf1"] = request.Udf1 ?? string.Empty,
-                ["udf2"] = request.Udf2 ?? string.Empty,
-                ["udf3"] = request.Udf3 ?? string.Empty,
-                ["udf4"] = request.Udf4 ?? string.Empty,
-                ["udf5"] = request.Udf5 ?? string.Empty
-            };
-
-            return new InitiatePaymentResponse
+                await _repository.AddAsync(payment, ct);
+                await _unitOfWork.CommitTransactionAsync(ct);
+            }
+            catch (Exception ex)
             {
-                PaymentId = payment.Id,
-                SalesOrderId = payment.SalesOrderId,
-                PaymentReference = payment.PaymentReference,
-                TransactionId = txnId,
-                PaymentUrl = paymentUrl,
-                FormParameters = formParameters,
-                Status = payment.Status
-            };
+                await _unitOfWork.RollbackTransactionAsync(ct);
+
+                // Handle concurrent race condition: another thread inserted the same IdempotencyKey simultaneously
+                _logger.LogWarning(ex, "Concurrency collision on IdempotencyKey {IdempotencyKey}. Reloading existing payment.", idempotencyKey);
+                var reloaded = await _repository.GetByIdempotencyKeyAsync(idempotencyKey, ct);
+                if (reloaded is not null)
+                {
+                    return BuildInitiateResponse(reloaded, merchantKey, merchantSalt, paymentUrl, surl, furl, request);
+                }
+                throw;
+            }
+
+            return BuildInitiateResponse(payment, merchantKey, merchantSalt, paymentUrl, surl, furl, request);
         }
 
         public async Task<PaymentResponse> ProcessCallbackAsync(
@@ -163,10 +163,13 @@ namespace Payment.Application.Services
             var payment = await _repository.GetByPaymentReferenceAsync(payload.TxnId, ct)
                 ?? throw new KeyNotFoundException($"Payment with reference '{payload.TxnId}' was not found.");
 
-            // Idempotency: if already Captured or Refunded
+            // Idempotency: if already Captured, Refunded, or Failed, return existing result without re-emitting events
             if (string.Equals(payment.Status, "Captured", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(payment.Status, "Refunded", StringComparison.OrdinalIgnoreCase))
+                string.Equals(payment.Status, "Refunded", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(payment.Status, "Failed", StringComparison.OrdinalIgnoreCase))
             {
+                _logger.LogInformation("Callback for payment {TxnId} received but status is already '{Status}'. Returning existing state idempotently.",
+                    payload.TxnId, payment.Status);
                 await _unitOfWork.CommitTransactionAsync(ct);
                 return Map(payment);
             }
@@ -185,6 +188,7 @@ namespace Payment.Application.Services
 
             if (isSuccessStatus)
             {
+                // Active server-to-server verification with PayU to ensure transaction integrity
                 var verifyResult = await _payUGatewayService.VerifyPaymentAsync(payload.TxnId, ct);
 
                 if (verifyResult.IsSuccess)
@@ -253,6 +257,7 @@ namespace Payment.Application.Services
             var payment = await _repository.GetByPaymentReferenceAsync(paymentReference, ct)
                 ?? throw new KeyNotFoundException($"Payment with reference '{paymentReference}' was not found.");
 
+            // Idempotent: if already Captured or Refunded, return existing state
             if (string.Equals(payment.Status, "Captured", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(payment.Status, "Refunded", StringComparison.OrdinalIgnoreCase))
             {
@@ -301,6 +306,28 @@ namespace Payment.Application.Services
 
             await _unitOfWork.BeginTransactionAsync(ct);
 
+            // 1. Idempotency Check for Saga & Refund
+            if (request.SagaId.HasValue)
+            {
+                var existingSagaRefund = await _repository.GetRefundBySagaIdAsync(request.SagaId.Value, ct);
+                if (existingSagaRefund is not null && string.Equals(existingSagaRefund.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Refund for saga {SagaId} already completed. Returning existing refund result idempotently.", request.SagaId.Value);
+                    await _unitOfWork.CommitTransactionAsync(ct);
+                    return new RefundPaymentResponse
+                    {
+                        RefundId = existingSagaRefund.Id,
+                        PaymentId = existingSagaRefund.PaymentId,
+                        SalesOrderId = existingSagaRefund.SalesOrderPublicId,
+                        RefundReference = existingSagaRefund.RefundReference,
+                        Amount = existingSagaRefund.Amount,
+                        Status = existingSagaRefund.Status,
+                        CreatedAtUtc = existingSagaRefund.CreatedAtUtc,
+                        CompletedAtUtc = existingSagaRefund.CompletedAtUtc
+                    };
+                }
+            }
+
             PaymentEntity? payment = null;
             if (request.PaymentId.HasValue)
             {
@@ -321,7 +348,35 @@ namespace Payment.Application.Services
             if (string.IsNullOrWhiteSpace(payment.GatewayTransactionId))
                 throw new InvalidOperationException("Gateway transaction ID (mihpayid) is missing for refund.");
 
-            var refundRef = $"RFND-2026-{Guid.NewGuid():N}"[..20].ToUpperInvariant();
+            // Formulate deterministic refund reference for idempotency across network retries
+            var refundRef = !string.IsNullOrWhiteSpace(request.IdempotencyKey)
+                ? request.IdempotencyKey.Trim()
+                : request.SagaId.HasValue
+                    ? $"RFND-SAGA-{request.SagaId:N}"[..20].ToUpperInvariant()
+                    : $"RFND-2026-{Guid.NewGuid():N}"[..20].ToUpperInvariant();
+
+            // Check if this refund reference was already recorded
+            var existingRefund = await _repository.GetRefundByReferenceAsync(refundRef, ct);
+            if (existingRefund is not null && string.Equals(existingRefund.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Refund with reference {RefundRef} already completed. Returning existing refund result idempotently.", refundRef);
+                await _unitOfWork.CommitTransactionAsync(ct);
+                return new RefundPaymentResponse
+                {
+                    RefundId = existingRefund.Id,
+                    PaymentId = existingRefund.PaymentId,
+                    SalesOrderId = existingRefund.SalesOrderPublicId,
+                    RefundReference = existingRefund.RefundReference,
+                    Amount = existingRefund.Amount,
+                    Status = existingRefund.Status,
+                    CreatedAtUtc = existingRefund.CreatedAtUtc,
+                    CompletedAtUtc = existingRefund.CompletedAtUtc
+                };
+            }
+
+            var refundReason = request.SagaId.HasValue
+                ? $"Order cancellation saga {request.SagaId.Value}: {(string.IsNullOrWhiteSpace(request.Reason) ? "Customer cancellation" : request.Reason)}"
+                : string.IsNullOrWhiteSpace(request.Reason) ? "Order cancellation" : request.Reason;
 
             var refund = new PaymentRefund
             {
@@ -329,13 +384,13 @@ namespace Payment.Application.Services
                 SalesOrderPublicId = payment.SalesOrderId,
                 RefundReference = refundRef,
                 Amount = request.Amount,
-                Reason = string.IsNullOrWhiteSpace(request.Reason) ? "Order cancellation" : request.Reason,
+                Reason = refundReason,
                 Status = "Requested"
             };
 
             await _repository.AddRefundAsync(refund, ct);
 
-            // Call PayU Refund API
+            // Call PayU Refund API with safe retry & constant refund reference (var2)
             var (gatewaySuccess, gatewayRefundId, errorMessage) = await _payUGatewayService.InitiateRefundAsync(
                 gatewayPaymentId: payment.GatewayTransactionId,
                 refundReference: refundRef,
@@ -384,6 +439,62 @@ namespace Payment.Application.Services
                 Error = gatewaySuccess ? null : errorMessage,
                 CreatedAtUtc = refund.CreatedAtUtc,
                 CompletedAtUtc = refund.CompletedAtUtc
+            };
+        }
+
+        private InitiatePaymentResponse BuildInitiateResponse(
+            PaymentEntity payment,
+            string merchantKey,
+            string merchantSalt,
+            string paymentUrl,
+            string surl,
+            string furl,
+            InitiatePaymentRequest request)
+        {
+            var formattedAmount = payment.Amount.ToString("F2", CultureInfo.InvariantCulture);
+
+            var hash = _payUGatewayService.GeneratePaymentHash(
+                key: merchantKey,
+                txnId: payment.PaymentReference,
+                amount: payment.Amount,
+                productInfo: request.ProductInfo.Trim(),
+                firstName: request.CustomerName.Trim(),
+                email: request.CustomerEmail.Trim(),
+                udf1: request.Udf1,
+                udf2: request.Udf2,
+                udf3: request.Udf3,
+                udf4: request.Udf4,
+                udf5: request.Udf5,
+                salt: merchantSalt);
+
+            var formParameters = new Dictionary<string, string>
+            {
+                ["key"] = merchantKey,
+                ["txnid"] = payment.PaymentReference,
+                ["amount"] = formattedAmount,
+                ["productinfo"] = request.ProductInfo.Trim(),
+                ["firstname"] = request.CustomerName.Trim(),
+                ["email"] = request.CustomerEmail.Trim(),
+                ["phone"] = request.CustomerPhone.Trim(),
+                ["surl"] = surl,
+                ["furl"] = furl,
+                ["hash"] = hash,
+                ["udf1"] = request.Udf1 ?? string.Empty,
+                ["udf2"] = request.Udf2 ?? string.Empty,
+                ["udf3"] = request.Udf3 ?? string.Empty,
+                ["udf4"] = request.Udf4 ?? string.Empty,
+                ["udf5"] = request.Udf5 ?? string.Empty
+            };
+
+            return new InitiatePaymentResponse
+            {
+                PaymentId = payment.Id,
+                SalesOrderId = payment.SalesOrderId,
+                PaymentReference = payment.PaymentReference,
+                TransactionId = payment.PaymentReference,
+                PaymentUrl = paymentUrl,
+                FormParameters = formParameters,
+                Status = payment.Status
             };
         }
 

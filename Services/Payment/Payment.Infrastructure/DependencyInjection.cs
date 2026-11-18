@@ -17,8 +17,17 @@ namespace Payment.Infrastructure
             var connectionString = configuration.GetConnectionString("PaymentDb")
                 ?? "Server=(localdb)\\mssqllocaldb;Database=PaymentDb;Trusted_Connection=True;MultipleActiveResultSets=true";
 
+            // Enable automatic retry on failure for transient SQL Server network & connection errors
             services.AddDbContext<PaymentDbContext>(options =>
-                options.UseSqlServer(connectionString));
+            {
+                options.UseSqlServer(connectionString, sqlOptions =>
+                {
+                    sqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorNumbersToAdd: null);
+                });
+            });
 
             services.AddScoped<IPaymentRepository, EfPaymentRepository>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
@@ -35,4 +44,3 @@ namespace Payment.Infrastructure
         }
     }
 }
-

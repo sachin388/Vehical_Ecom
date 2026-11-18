@@ -36,6 +36,14 @@ namespace Payment.Infrastructure.Persistence
                 .SingleOrDefaultAsync(x => x.PaymentReference == paymentReference, ct);
         }
 
+        public async Task<PaymentEntity?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default)
+        {
+            return await _db.Payments
+                .Include(x => x.Transactions)
+                .Include(x => x.Refunds)
+                .SingleOrDefaultAsync(x => x.IdempotencyKey == idempotencyKey, ct);
+        }
+
         public async Task<IReadOnlyList<PaymentEntity>> GetBySalesOrderIdAsync(Guid salesOrderId, CancellationToken ct = default)
         {
             return await _db.Payments
@@ -44,6 +52,23 @@ namespace Payment.Infrastructure.Persistence
                 .Where(x => x.SalesOrderId == salesOrderId)
                 .OrderByDescending(x => x.CreatedAtUtc)
                 .ToListAsync(ct);
+        }
+
+        public async Task<PaymentRefund?> GetRefundByReferenceAsync(string refundReference, CancellationToken ct = default)
+        {
+            return await _db.PaymentRefunds
+                .SingleOrDefaultAsync(x => x.RefundReference == refundReference, ct);
+        }
+
+        public async Task<PaymentRefund?> GetRefundBySagaIdAsync(Guid sagaId, CancellationToken ct = default)
+        {
+            var sagaStr = sagaId.ToString();
+            var sagaPrefix = sagaStr[..8];
+
+            return await _db.PaymentRefunds
+                .Where(x => x.Reason.Contains(sagaStr) || x.RefundReference.Contains(sagaPrefix))
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .FirstOrDefaultAsync(ct);
         }
 
         public async Task AddAsync(PaymentEntity payment, CancellationToken ct = default)

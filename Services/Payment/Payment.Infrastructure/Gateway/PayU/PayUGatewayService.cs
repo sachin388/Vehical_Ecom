@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Payment.Application.DTOs;
 using Payment.Application.Interfaces;
+using Polly;
 
 namespace Payment.Infrastructure.Gateway.PayU
 {
@@ -17,6 +18,7 @@ namespace Payment.Infrastructure.Gateway.PayU
         private readonly HttpClient _httpClient;
         private readonly PayUOptions _options;
         private readonly ILogger<PayUGatewayService> _logger;
+        private readonly ResiliencePipeline<HttpResponseMessage> _resiliencePipeline;
 
         public PayUGatewayService(
             HttpClient httpClient,
@@ -26,6 +28,7 @@ namespace Payment.Infrastructure.Gateway.PayU
             _httpClient = httpClient;
             _options = options.Value;
             _logger = logger;
+            _resiliencePipeline = PayUResiliencePolicy.CreateHttpRetryPipeline(logger);
         }
 
         public string GeneratePaymentHash(
@@ -71,12 +74,16 @@ namespace Payment.Infrastructure.Gateway.PayU
                     ["hash"] = hash
                 };
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, _options.VerifyPaymentUrl)
+                // Execute with Polly exponential backoff retry for transient network/server issues
+                var response = await _resiliencePipeline.ExecuteAsync(async token =>
                 {
-                    Content = new FormUrlEncodedContent(formData)
-                };
+                    using var request = new HttpRequestMessage(HttpMethod.Post, _options.VerifyPaymentUrl)
+                    {
+                        Content = new FormUrlEncodedContent(formData)
+                    };
+                    return await _httpClient.SendAsync(request, token);
+                }, ct);
 
-                var response = await _httpClient.SendAsync(request, ct);
                 var responseContent = await response.Content.ReadAsStringAsync(ct);
 
                 if (!response.IsSuccessStatusCode)
@@ -84,7 +91,6 @@ namespace Payment.Infrastructure.Gateway.PayU
                     _logger.LogWarning("PayU verify_payment returned HTTP status {StatusCode}: {Body}",
                         response.StatusCode, responseContent);
 
-                    // If mock/test merchant key is used in development/unit test environment
                     if (_options.MerchantKey.Contains("test", StringComparison.OrdinalIgnoreCase))
                     {
                         return new VerifyPaymentGatewayResult
@@ -110,7 +116,6 @@ namespace Payment.Infrastructure.Gateway.PayU
                 using var doc = JsonDocument.Parse(responseContent);
                 var root = doc.RootElement;
 
-                // PayU postservice JSON structure
                 if (root.TryGetProperty("transaction_details", out var detailsElement))
                 {
                     if (detailsElement.TryGetProperty(txnId, out var txnElement))
@@ -136,7 +141,6 @@ namespace Payment.Infrastructure.Gateway.PayU
                     }
                 }
 
-                // If root status was 0 or transaction was not found
                 var msg = root.TryGetProperty("msg", out var msgElement) ? msgElement.GetString() : "Transaction not found";
                 return new VerifyPaymentGatewayResult
                 {
@@ -150,7 +154,6 @@ namespace Payment.Infrastructure.Gateway.PayU
             {
                 _logger.LogError(ex, "Exception calling PayU verify_payment for transaction {TxnId}.", txnId);
 
-                // Safe fallback for offline development/test environment
                 if (_options.MerchantKey.Contains("test", StringComparison.OrdinalIgnoreCase))
                 {
                     return new VerifyPaymentGatewayResult
@@ -195,17 +198,21 @@ namespace Payment.Infrastructure.Gateway.PayU
                     ["key"] = _options.MerchantKey,
                     ["command"] = command,
                     ["var1"] = gatewayPaymentId,
-                    ["var2"] = refundReference,
+                    ["var2"] = refundReference, // Acts as PayU idempotency key across retries
                     ["var3"] = formattedAmount,
                     ["hash"] = hash
                 };
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, _options.RefundUrl)
+                // Execute with Polly exponential backoff retry for transient network/server issues
+                var response = await _resiliencePipeline.ExecuteAsync(async token =>
                 {
-                    Content = new FormUrlEncodedContent(formData)
-                };
+                    using var request = new HttpRequestMessage(HttpMethod.Post, _options.RefundUrl)
+                    {
+                        Content = new FormUrlEncodedContent(formData)
+                    };
+                    return await _httpClient.SendAsync(request, token);
+                }, ct);
 
-                var response = await _httpClient.SendAsync(request, ct);
                 var responseContent = await response.Content.ReadAsStringAsync(ct);
 
                 if (!response.IsSuccessStatusCode)
@@ -249,4 +256,3 @@ namespace Payment.Infrastructure.Gateway.PayU
         }
     }
 }
-

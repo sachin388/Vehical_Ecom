@@ -68,7 +68,8 @@ namespace Payment.Tests
                 CustomerName = "Sachin C",
                 CustomerEmail = "sachin@example.com",
                 CustomerPhone = "9876543210",
-                ProductInfo = "Vehicle accessories package"
+                ProductInfo = "Vehicle accessories package",
+                IdempotencyKey = "IDEMP-TEST-001"
             };
 
             _gatewayMock
@@ -94,9 +95,97 @@ namespace Payment.Tests
             _repoMock.Verify(r => r.AddAsync(It.Is<PaymentEntity>(t =>
                 t.SalesOrderId == request.SalesOrderId &&
                 t.Amount == request.Amount &&
+                t.IdempotencyKey == "IDEMP-TEST-001" &&
                 t.Status == "Initiated"), It.IsAny<CancellationToken>()), Times.Once);
 
             _unitOfWorkMock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task InitiatePaymentAsync_WithDuplicateIdempotencyKey_ReturnsExistingPaymentWithoutDuplicateInsert()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            var idempotencyKey = "IDEMP-RETRY-999";
+            var existingPayment = new PaymentEntity
+            {
+                Id = 42,
+                PaymentReference = "TXN_EXISTING_123",
+                SalesOrderId = orderId,
+                CustomerId = "CUST-001",
+                Amount = 15000.00m,
+                Currency = "INR",
+                Status = "Initiated",
+                IdempotencyKey = idempotencyKey
+            };
+
+            _repoMock.Setup(r => r.GetByIdempotencyKeyAsync(idempotencyKey, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(existingPayment);
+
+            var retryRequest = new InitiatePaymentRequest
+            {
+                SalesOrderId = orderId,
+                Amount = 15000.00m,
+                Currency = "INR",
+                CustomerName = "Sachin",
+                CustomerEmail = "sachin@example.com",
+                CustomerPhone = "9876543210",
+                ProductInfo = "Item package",
+                IdempotencyKey = idempotencyKey
+            };
+
+            _gatewayMock
+                .Setup(g => g.GeneratePaymentHash(
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<decimal>(),
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                    It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string>()))
+                .Returns("mock_sha512_hash");
+
+            // Act
+            var result = await _service.InitiatePaymentAsync(retryRequest);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(42, result.PaymentId);
+            Assert.Equal("TXN_EXISTING_123", result.TransactionId);
+            Assert.Equal("Initiated", result.Status);
+
+            // Ensure AddAsync was NEVER called again
+            _repoMock.Verify(r => r.AddAsync(It.IsAny<PaymentEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task InitiatePaymentAsync_WithSameIdempotencyKeyButDifferentAmount_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            var idempotencyKey = "IDEMP-CONFLICT";
+            var existingPayment = new PaymentEntity
+            {
+                Id = 1,
+                PaymentReference = "TXN123",
+                SalesOrderId = orderId,
+                Amount = 1000.00m,
+                IdempotencyKey = idempotencyKey
+            };
+
+            _repoMock.Setup(r => r.GetByIdempotencyKeyAsync(idempotencyKey, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(existingPayment);
+
+            var conflictingRequest = new InitiatePaymentRequest
+            {
+                SalesOrderId = orderId,
+                Amount = 5000.00m, // Different amount!
+                CustomerName = "Sachin",
+                CustomerEmail = "sachin@example.com",
+                CustomerPhone = "9876543210",
+                ProductInfo = "Item",
+                IdempotencyKey = idempotencyKey
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _service.InitiatePaymentAsync(conflictingRequest));
         }
 
         [Fact]
@@ -179,6 +268,45 @@ namespace Payment.Tests
                 It.IsAny<CancellationToken>()), Times.Once);
 
             _repoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task ProcessCallbackAsync_WhenAlreadyCaptured_ReturnsExistingResultIdempotentlyWithoutDuplicateEvents()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            var txnId = "TXN123456789";
+            var existingPayment = new PaymentEntity
+            {
+                Id = 1,
+                SalesOrderId = orderId,
+                PaymentReference = txnId,
+                Amount = 1500.00m,
+                Currency = "INR",
+                Status = "Captured", // Already captured previously
+                GatewayTransactionId = "MIH987654"
+            };
+
+            _repoMock.Setup(r => r.GetByPaymentReferenceAsync(txnId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(existingPayment);
+
+            var payload = new PayUCallbackPayload
+            {
+                TxnId = txnId,
+                Status = "success"
+            };
+
+            // Act
+            var result = await _service.ProcessCallbackAsync(payload);
+
+            // Assert
+            Assert.Equal("Captured", result.Status);
+            Assert.Equal("MIH987654", result.GatewayTransactionId);
+
+            // Ensure NO duplicate outbox event was emitted on retry
+            _outboxMock.Verify(o => o.AddAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         [Fact]
@@ -313,6 +441,47 @@ namespace Payment.Tests
                     p.SalesOrderId == orderId &&
                     p.ProviderReference == "REFUND_GATEWAY_123"),
                 It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task RefundPaymentAsync_WhenSagaRefundAlreadyCompleted_ReturnsExistingResultIdempotentlyWithoutGatewayCall()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            var sagaId = Guid.NewGuid();
+
+            var completedRefund = new PaymentRefund
+            {
+                Id = 999,
+                PaymentId = 100,
+                SalesOrderPublicId = orderId,
+                RefundReference = "RFND-SAGA-COMPLETED",
+                Amount = 5000.00m,
+                Status = "Completed"
+            };
+
+            _repoMock.Setup(r => r.GetRefundBySagaIdAsync(sagaId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(completedRefund);
+
+            var retryRequest = new RefundPaymentRequest
+            {
+                SalesOrderId = orderId,
+                Amount = 5000.00m,
+                SagaId = sagaId
+            };
+
+            // Act
+            var result = await _service.RefundPaymentAsync(retryRequest);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(999, result.RefundId);
+            Assert.Equal("Completed", result.Status);
+
+            // Ensure gateway was NOT called again to avoid duplicate refund on PayU
+            _gatewayMock.Verify(g => g.InitiateRefundAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<decimal>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
     }
 }

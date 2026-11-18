@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +22,7 @@ namespace Payment.Tests
         }
 
         [Fact]
-        public async Task InitiatePayment_ReturnsOkWithResponse()
+        public async Task InitiatePayment_ReturnsOkWithResponse_AndPassesIdempotencyHeader()
         {
             // Arrange
             var request = new InitiatePaymentRequest
@@ -46,11 +45,12 @@ namespace Payment.Tests
                 Status = "Initiated"
             };
 
-            _serviceMock.Setup(s => s.InitiatePaymentAsync(request, It.IsAny<CancellationToken>()))
+            _serviceMock.Setup(s => s.InitiatePaymentAsync(It.Is<InitiatePaymentRequest>(r =>
+                r.IdempotencyKey == "IDEMP-HEADER-123"), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedResponse);
 
             // Act
-            var result = await _controller.InitiatePayment(request, CancellationToken.None);
+            var result = await _controller.InitiatePayment(request, "IDEMP-HEADER-123", CancellationToken.None);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -143,11 +143,12 @@ namespace Payment.Tests
                 Amount = 500m
             };
 
-            _serviceMock.Setup(s => s.RefundPaymentAsync(request, It.IsAny<CancellationToken>()))
+            _serviceMock.Setup(s => s.RefundPaymentAsync(It.Is<RefundPaymentRequest>(r =>
+                r.IdempotencyKey == "IDEMP-REF-1"), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedResponse);
 
             // Act
-            var result = await _controller.RefundPayment(request, CancellationToken.None);
+            var result = await _controller.RefundPayment(request, "IDEMP-REF-1", CancellationToken.None);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);

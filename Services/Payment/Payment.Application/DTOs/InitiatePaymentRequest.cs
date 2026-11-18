@@ -12,6 +12,7 @@ namespace Payment.Application.DTOs
         public string CustomerEmail { get; set; } = string.Empty;
         public string CustomerPhone { get; set; } = string.Empty;
         public string ProductInfo { get; set; } = string.Empty;
+        public string? IdempotencyKey { get; set; }
         public string? SuccessUrl { get; set; }
         public string? FailureUrl { get; set; }
         public string? Udf1 { get; set; }

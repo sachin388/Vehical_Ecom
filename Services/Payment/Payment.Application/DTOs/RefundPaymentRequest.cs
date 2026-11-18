@@ -9,5 +9,6 @@ namespace Payment.Application.DTOs
         public decimal Amount { get; set; }
         public string Reason { get; set; } = string.Empty;
         public Guid? SagaId { get; set; }
+        public string? IdempotencyKey { get; set; }
     }
 }
