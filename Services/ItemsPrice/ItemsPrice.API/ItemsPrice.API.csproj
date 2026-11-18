@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ItemsPrice.Application\ItemsPrice.Application.csproj" />
     <ProjectReference Include="..\ItemsPrice.Infrastructure\ItemsPrice.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\VehicleEcom.Observability\VehicleEcom.Observability.csproj" />
   </ItemGroup>
 
 </Project>

@@ -3,7 +3,12 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Items.Infrastructure;
+using VehicleEcom.Observability;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "Items.API");
+builder.Services.AddPlatformObservability(builder.Configuration, "Items.API");
 
 builder.Services.AddControllers();
 
@@ -58,8 +63,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication();
+app.UsePlatformObservability();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

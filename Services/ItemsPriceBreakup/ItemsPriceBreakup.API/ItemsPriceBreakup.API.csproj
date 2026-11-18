@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ItemsPriceBreakup.Application\ItemsPriceBreakup.Application.csproj" />
     <ProjectReference Include="..\ItemsPriceBreakup.Infrastruture\ItemsPriceBreakup.Infrastruture.csproj" />
+    <ProjectReference Include="..\..\..\Shared\VehicleEcom.Observability\VehicleEcom.Observability.csproj" />
   </ItemGroup>
 
 </Project>
