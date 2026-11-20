@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Payment.Application.Interfaces;
 using Payment.Infrastructure.Gateway.PayU;
+using Payment.Infrastructure.Messaging;
 using Payment.Infrastructure.Persistence;
 
 namespace Payment.Infrastructure
@@ -32,6 +33,9 @@ namespace Payment.Infrastructure
             services.AddScoped<IPaymentRepository, EfPaymentRepository>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
             services.AddScoped<IOutboxWriter, EfOutboxWriter>();
+
+            // Transactional Outbox Background Processor
+            services.AddHostedService<OutboxProcessor>();
 
             services.Configure<PayUOptions>(configuration.GetSection(PayUOptions.SectionName));
 
