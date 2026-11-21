@@ -5,6 +5,8 @@ using Items.Application.Services;
 using ItemService.Application.Commands;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VehicleEcom.Security.Authorization;
+using VehicleEcom.Security.Constants;
 
 namespace Imtes.API.Controllers
 {
@@ -52,7 +54,7 @@ namespace Imtes.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [HasPermission(VehiclePermissions.ItemsManage)]
         public async Task<IActionResult> Create(
             [FromBody] CreateItemRequest request,
             CancellationToken cancellationToken)
@@ -85,7 +87,7 @@ namespace Imtes.API.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Roles = "Admin")]
+        [HasPermission(VehiclePermissions.ItemsManage)]
         public async Task<IActionResult> Update(
             int id,
             [FromBody] UpdateItemRequest request,
@@ -105,7 +107,7 @@ namespace Imtes.API.Controllers
         }
 
         [HttpPatch("{id:int}/status")]
-        [Authorize(Roles = "Admin")]
+        [HasPermission(VehiclePermissions.ItemsManage)]
         public async Task<IActionResult> ChangeStatus(
             int id,
             [FromBody] ChangeItemStatusRequest request,
@@ -126,5 +128,4 @@ namespace Imtes.API.Controllers
             return Ok(result);
         }
     }
-
 }

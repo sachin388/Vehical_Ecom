@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Dealer.Application\Dealer.Application.csproj" />
     <ProjectReference Include="..\..\..\Shared\VehicleEcom.Observability\VehicleEcom.Observability.csproj" />
+    <ProjectReference Include="..\..\..\Shared\VehicleEcom.Security\VehicleEcom.Security.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,11 +1,15 @@
 using Dealer.Application.DTOs;
 using Dealer.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VehicleEcom.Security.Authorization;
+using VehicleEcom.Security.Constants;
 
 namespace Dealer.API.Controllers
 {
     [ApiController]
     [Route("api/dealers")]
+    [Authorize]
     public sealed class DealersController : ControllerBase
     {
         private readonly DealerApplicationService _service;
@@ -15,6 +19,7 @@ namespace Dealer.API.Controllers
 
         // POST /api/dealers
         [HttpPost]
+        [HasPermission(VehiclePermissions.DealersManage)]
         [ProducesResponseType(typeof(DealerResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -49,6 +54,7 @@ namespace Dealer.API.Controllers
 
         // GET /api/dealers/{dealerId}
         [HttpGet("{dealerId:long}")]
+        [HasPermission(VehiclePermissions.DealersRead)]
         [ProducesResponseType(typeof(DealerResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<DealerResponse>> GetById(
@@ -63,6 +69,7 @@ namespace Dealer.API.Controllers
 
         // GET /api/dealers/available?itemId=101&sku=BIKE-101&quantity=1&city=Pune
         [HttpGet("available")]
+        [HasPermission(VehiclePermissions.DealersRead)]
         [ProducesResponseType(typeof(List<DealerAvailabilityResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<List<DealerAvailabilityResponse>>> GetAvailable(
@@ -84,5 +91,4 @@ namespace Dealer.API.Controllers
             }
         }
     }
-
 }

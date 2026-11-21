@@ -1,134 +1,67 @@
 using AuthService.Application.Interfaces;
 using AuthService.Infrastructure;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using System.Text;
 using VehicleEcom.Observability;
+using VehicleEcom.Security.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "AuthService");
 builder.Services.AddPlatformObservability(builder.Configuration, "AuthService");
 
-builder.Services.AddControllers();
+// CORS for web clients
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[]
+{
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:4173",
+    "http://localhost:8080"
+};
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DefaultCorsPolicy", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(options =>
 {
-    options.AddSecurityDefinition(
-        "Bearer",
-        new OpenApiSecurityScheme
-        {
-            Name = "Authorization",
-
-            Type = SecuritySchemeType.Http,
-
-            Scheme = "bearer",
-
-            BearerFormat = "JWT",
-
-            In = ParameterLocation.Header,
-
-            Description =
-                "Enter: Bearer {your JWT token}"
-        });
-
-    options.AddSecurityRequirement(
-        new OpenApiSecurityRequirement
-        {
-            {
-                new OpenApiSecurityScheme
-                {
-                    Reference =
-                        new OpenApiReference
-                        {
-                            Type =
-                                ReferenceType.SecurityScheme,
-
-                            Id = "Bearer"
-                        }
-                },
-
-                Array.Empty<string>()
-            }
-        });
+    options.AddVehicleSwaggerSecurity(
+        "Vehicle E-Commerce AuthService (OIDC / OAuth 2.0 IdP)",
+        "v1",
+        "Centralized Identity Provider & Security Token Service implementing OIDC and OAuth 2.0 for Web, Mobile, and Microservices.");
 });
 
-builder.Services.AddInfrastructure(
-    builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddScoped<IAuthService, AuthService.Application.Services.AuthService>();
 
-builder.Services.AddScoped<
-    IAuthService,
-    AuthService.Application.Services.AuthService>();
-
-var jwtSecret =
-    builder.Configuration["Jwt:SecretKey"]!;
-
-var jwtIssuer =
-    builder.Configuration["Jwt:Issuer"]!;
-
-var jwtAudience =
-    builder.Configuration["Jwt:Audience"]!;
-
-if (string.IsNullOrWhiteSpace(jwtSecret)
-    || jwtSecret.Length < 32)
-{
-    throw new InvalidOperationException(
-        "JWT SecretKey must contain at least 32 characters.");
-}
-
-builder.Services
-    .AddAuthentication(
-        JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters =
-            new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-
-                ValidateAudience = true,
-
-                ValidateLifetime = true,
-
-                ValidateIssuerSigningKey = true,
-
-                ValidIssuer = jwtIssuer,
-
-                ValidAudience = jwtAudience,
-
-                IssuerSigningKey =
-                    new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(
-                            jwtSecret)),
-
-                ClockSkew =
-                    TimeSpan.FromSeconds(30)
-            };
-    });
-
-builder.Services.AddAuthorization();
+builder.Services.AddVehiclePlatformAuthentication(builder.Configuration);
+builder.Services.AddVehiclePlatformAuthorization();
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-
     app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
-
 app.UsePlatformObservability();
+app.UseCors("DefaultCorsPolicy");
 
 app.UseAuthentication();
-
+app.UseVehicleSecurityAudit();
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
-

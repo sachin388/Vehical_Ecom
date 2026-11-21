@@ -1,4 +1,4 @@
-﻿using AuthService.Application.Interfaces;
+using AuthService.Application.Interfaces;
 using AuthService.Infrastructure.Persistence;
 using AuthService.Infrastructure.Repositories;
 using AuthService.Infrastructure.Security;
@@ -14,28 +14,25 @@ namespace AuthService.Infrastructure
             this IServiceCollection services,
             IConfiguration configuration)
         {
+            var connectionString = configuration.GetConnectionString("AuthDb");
+
             services.AddDbContext<AuthDbContext>(options =>
-                options.UseSqlServer(
-                    configuration.GetConnectionString(
-                        "AuthDb")));
+            {
+                if (!string.IsNullOrEmpty(connectionString))
+                {
+                    options.UseSqlServer(connectionString);
+                }
+            });
 
-            services.AddScoped<IUserRepository,
-                UserRepository>();
-
-            services.AddScoped<IRoleRepository,
-                RoleRepository>();
-
-            services.AddScoped<IRefreshTokenRepository,
-                RefreshTokenRepository>();
-
-            services.AddScoped<IPasswordService,
-                PasswordService>();
-
-            services.AddScoped<ITokenService,
-                TokenService>();
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IRoleRepository, RoleRepository>();
+            services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+            services.AddSingleton<IClientRepository, ClientRepository>();
+            services.AddSingleton<IKeyMaterialService, KeyMaterialService>();
+            services.AddScoped<IPasswordService, PasswordService>();
+            services.AddScoped<ITokenService, TokenService>();
 
             return services;
         }
     }
-
 }

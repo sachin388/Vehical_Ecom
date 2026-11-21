@@ -3,6 +3,8 @@ using ItemsPrice.Application.DTOs;
 using ItemsPrice.Application.Services.NewFolder;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VehicleEcom.Security.Authorization;
+using VehicleEcom.Security.Constants;
 
 namespace ItemsPrice.API.Controllers
 {
@@ -12,8 +14,7 @@ namespace ItemsPrice.API.Controllers
     {
         private readonly ItemPriceApplicationService _service;
 
-        public ItemPricesController(
-            ItemPriceApplicationService service)
+        public ItemPricesController(ItemPriceApplicationService service)
         {
             _service = service;
         }
@@ -24,8 +25,7 @@ namespace ItemsPrice.API.Controllers
             int itemId,
             CancellationToken cancellationToken)
         {
-            var result = await _service.GetCurrentPriceAsync(
-                itemId, cancellationToken);
+            var result = await _service.GetCurrentPriceAsync(itemId, cancellationToken);
 
             if (result == null)
                 return NotFound();
@@ -35,18 +35,17 @@ namespace ItemsPrice.API.Controllers
 
         [HttpGet("history/{itemId:int}")]
         [Authorize]
+        [HasPermission(VehiclePermissions.PricingRead)]
         public async Task<IActionResult> GetHistory(
             int itemId,
             CancellationToken cancellationToken)
         {
-            var result = await _service.GetHistoryAsync(
-                itemId, cancellationToken);
-
+            var result = await _service.GetHistoryAsync(itemId, cancellationToken);
             return Ok(result);
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [HasPermission(VehiclePermissions.PricingManage)]
         public async Task<IActionResult> Create(
             CreatePriceRequest request,
             CancellationToken cancellationToken)
@@ -58,13 +57,11 @@ namespace ItemsPrice.API.Controllers
                 },
                 cancellationToken);
 
-            return Created(
-                $"/api/item-prices/{result.PriceId}",
-                result);
+            return Created($"/api/item-prices/{result.PriceId}", result);
         }
 
         [HttpPut("{priceId:long}")]
-        [Authorize(Roles = "Admin")]
+        [HasPermission(VehiclePermissions.PricingManage)]
         public async Task<IActionResult> Update(
             long priceId,
             UpdatePriceRequest request,
@@ -85,7 +82,7 @@ namespace ItemsPrice.API.Controllers
         }
 
         [HttpPost("{priceId:long}/discounts")]
-        [Authorize(Roles = "Admin")]
+        [HasPermission(VehiclePermissions.PricingManage)]
         public async Task<IActionResult> AddDiscount(
             long priceId,
             DiscountRequest request,
@@ -106,7 +103,7 @@ namespace ItemsPrice.API.Controllers
         }
 
         [HttpPatch("{priceId:long}/deactivate")]
-        [Authorize(Roles = "Admin")]
+        [HasPermission(VehiclePermissions.PricingManage)]
         public async Task<IActionResult> Deactivate(
             long priceId,
             CancellationToken cancellationToken)
@@ -124,5 +121,4 @@ namespace ItemsPrice.API.Controllers
             return NoContent();
         }
     }
-
 }

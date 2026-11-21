@@ -1,12 +1,16 @@
 using Dealer.Application.DTOs;
 using Dealer.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using VehicleEcom.Security.Authorization;
+using VehicleEcom.Security.Constants;
 
 namespace Dealer.API.Controllers
 {
     [ApiController]
     [Route("api/dealers/{dealerId:long}/inventory")]
+    [Authorize]
     public sealed class DealerInventoryController : ControllerBase
     {
         private readonly IDealerInventoryApplicationService _service;
@@ -15,9 +19,8 @@ namespace Dealer.API.Controllers
             => _service = service;
 
         // POST /api/dealers/{dealerId}/inventory
-        // Sets the physical quantity; the application service must reject a quantity
-        // lower than ReservedQuantity and must verify that the dealer is active.
         [HttpPost]
+        [HasPermission(VehiclePermissions.InventoryManage)]
         [ProducesResponseType(typeof(DealerInventoryResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -66,6 +69,7 @@ namespace Dealer.API.Controllers
 
         // GET /api/dealers/{dealerId}/inventory
         [HttpGet]
+        [HasPermission(VehiclePermissions.InventoryRead)]
         [ProducesResponseType(typeof(IReadOnlyList<DealerInventoryResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<IReadOnlyList<DealerInventoryResponse>>> GetInventory(
@@ -90,5 +94,4 @@ namespace Dealer.API.Controllers
             }
         }
     }
-
 }

@@ -1,4 +1,5 @@
 using VehicleEcom.Observability;
+using VehicleEcom.Security.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,16 +7,22 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "NotificationSystem.API");
 builder.Services.AddPlatformObservability(builder.Configuration, "NotificationSystem.API");
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddVehicleSwaggerSecurity(
+        "Notification Service API",
+        "v1",
+        "Vehicle E-Commerce Notifications Microservice protected by Centralized OIDC / OAuth 2.0.");
+});
+
+// Centralized OIDC & OAuth 2.0 Token Validation & Authorization
+builder.Services.AddVehiclePlatformAuthentication(builder.Configuration);
+builder.Services.AddVehiclePlatformAuthorization();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -23,9 +30,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UsePlatformObservability();
 
+app.UseAuthentication();
+app.UseVehicleSecurityAudit();
 app.UseAuthorization();
 
 app.MapControllers();

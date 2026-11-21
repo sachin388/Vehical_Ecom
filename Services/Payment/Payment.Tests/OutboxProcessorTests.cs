@@ -45,7 +45,7 @@ namespace Payment.Tests
             var serviceProviderMock = new Mock<IServiceProvider>();
             serviceProviderMock
                 .Setup(sp => sp.GetService(typeof(PaymentDbContext)))
-                .Returns(new PaymentDbContext(options));
+                .Returns(db);
 
             var scopeMock = new Mock<IServiceScope>();
             scopeMock.Setup(s => s.ServiceProvider).Returns(serviceProviderMock.Object);

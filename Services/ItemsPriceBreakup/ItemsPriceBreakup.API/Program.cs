@@ -1,8 +1,6 @@
-using System.Text;
 using ItemsPriceBreakup.Infrastruture;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using VehicleEcom.Observability;
+using VehicleEcom.Security.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,28 +9,19 @@ builder.Services.AddPlatformObservability(builder.Configuration, "ItemsPriceBrea
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddVehicleSwaggerSecurity(
+        "Vehicle Price Breakup Service API",
+        "v1",
+        "Vehicle E-Commerce Price Breakup & Tax Calculation Microservice protected by Centralized OIDC / OAuth 2.0.");
+});
 
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SecretKey"]!))
-        };
-    });
-
-builder.Services.AddAuthorization();
+// Centralized OIDC & OAuth 2.0 Token Validation & Authorization
+builder.Services.AddVehiclePlatformAuthentication(builder.Configuration);
+builder.Services.AddVehiclePlatformAuthorization();
 
 var app = builder.Build();
 
@@ -44,8 +33,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UsePlatformObservability();
+
 app.UseAuthentication();
+app.UseVehicleSecurityAudit();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();

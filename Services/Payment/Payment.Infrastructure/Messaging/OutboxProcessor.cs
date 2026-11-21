@@ -36,7 +36,14 @@ namespace Payment.Infrastructure.Messaging
         {
             try
             {
-                var bootstrapServers = _configuration["Kafka:BootstrapServers"] ?? "localhost:9092";
+                var bootstrapServers = _configuration["Kafka:BootstrapServers"];
+                if (string.IsNullOrWhiteSpace(bootstrapServers))
+                {
+                    _logger.LogInformation("Kafka:BootstrapServers not configured. Outbox will operate in development log-only mode.");
+                    _producer = null;
+                    return;
+                }
+
                 var config = new ProducerConfig
                 {
                     BootstrapServers = bootstrapServers,

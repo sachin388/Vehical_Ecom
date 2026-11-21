@@ -1,11 +1,9 @@
-using System.Text;
 using System.Threading.RateLimiting;
 using ApiGateway.Middleware;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using VehicleEcom.Observability;
+using VehicleEcom.Security.Extensions;
 using Yarp.ReverseProxy.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,11 +17,6 @@ builder.Logging.AddDebug();
 builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "ApiGateway");
 
 builder.Services.AddPlatformObservability(builder.Configuration, "ApiGateway");
-
-var jwtSection = builder.Configuration.GetSection("Jwt");
-var jwtIssuer = jwtSection["Issuer"] ?? "VehicleEcommerce.Auth";
-var jwtAudience = jwtSection["Audience"] ?? "VehicleEcommerce.Api";
-var jwtKey = jwtSection["SecretKey"] ?? "6XNealH/7HrldBMPZ4T/cNiQnxsTz/N1eOPrfOKN+05uTquaBKTBqgcAeq/N5QJPveDAqe1QuckyAP1jef2gKg==";
 
 // -----------------------------------------------------------------------------
 // 2. CORS Policy
@@ -49,43 +42,10 @@ builder.Services.AddCors(options =>
 });
 
 // -----------------------------------------------------------------------------
-// 3. JWT Authentication & Authorization
+// 3. Centralized OIDC / OAuth 2.0 JWT Authentication & Authorization
 // -----------------------------------------------------------------------------
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.RequireHttpsMetadata = false;
-        options.SaveToken = true;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-            ClockSkew = TimeSpan.FromSeconds(30)
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogWarning("Authentication failed on Gateway: {Message}", context.Exception.Message);
-                return Task.CompletedTask;
-            }
-        };
-    });
-
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("Authenticated", policy => policy.RequireAuthenticatedUser());
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", "SuperAdmin"));
-    options.AddPolicy("DealerOnly", policy => policy.RequireRole("Dealer", "DealerPrincipal", "DealershipSalesManager"));
-});
+builder.Services.AddVehiclePlatformAuthentication(builder.Configuration);
+builder.Services.AddVehiclePlatformAuthorization();
 
 // -----------------------------------------------------------------------------
 // 4. Rate Limiting (.NET 8 Built-in)
@@ -127,37 +87,11 @@ builder.Services.AddReverseProxy()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Vehicle E-Commerce API Gateway (YARP)",
-        Version = "v1",
-        Description = "Enterprise YARP Reverse Proxy & Edge Gateway for Vehicle E-Commerce Microservices. " +
-                      "Provides centralized JWT authentication relay, distributed tracing, rate limiting, and intelligent path routing."
-    });
-
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and your token.",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
+    c.AddVehicleSwaggerSecurity(
+        "Vehicle E-Commerce API Gateway (YARP)",
+        "v1",
+        "Enterprise YARP Reverse Proxy & Edge Gateway for Vehicle E-Commerce Microservices. " +
+        "Provides centralized OIDC / OAuth 2.0 JWT authentication relay, distributed tracing, rate limiting, and intelligent path routing.");
 });
 
 // -----------------------------------------------------------------------------
@@ -192,6 +126,7 @@ app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseMiddleware<UserContextRelayMiddleware>();
+app.UseVehicleSecurityAudit();
 app.UseAuthorization();
 
 // -----------------------------------------------------------------------------
@@ -210,7 +145,7 @@ app.MapGet("/", () => Results.Ok(new
     RoutesEndpoint = "/api/gateway/routes",
     Services = new[]
     {
-        new { Name = "AuthService", Route = "/api/auth/*", Cluster = "auth-cluster", Port = 5149 },
+        new { Name = "AuthService", Route = "/api/auth/*, /connect/*, /.well-known/*", Cluster = "auth-cluster", Port = 5149 },
         new { Name = "ItemsService", Route = "/api/items/*", Cluster = "items-cluster", Port = 5022 },
         new { Name = "ItemsPriceService", Route = "/api/item-prices/*, /api/pricing/*", Cluster = "itemsprice-cluster", Port = 5193 },
         new { Name = "ItemsPriceBreakupService", Route = "/api/price-breakups/*, /api/pricebreakup/*", Cluster = "itemspricebreakup-cluster", Port = 5142 },

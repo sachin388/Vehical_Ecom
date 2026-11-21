@@ -1,4 +1,4 @@
-﻿using Items.Domain.Enums;
+using Items.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +10,7 @@ namespace Items.Domain.Entities
     public class Item
     {
         public int ItemId { get; set; }
+        public int Id { get => ItemId; set => ItemId = value; }
 
         public string SKU { get; set; } = string.Empty;
 

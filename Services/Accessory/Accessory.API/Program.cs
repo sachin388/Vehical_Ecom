@@ -1,8 +1,6 @@
-using System.Text;
 using Accessory.Infrastructure;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using VehicleEcom.Observability;
+using VehicleEcom.Security.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,31 +9,19 @@ builder.Services.AddPlatformObservability(builder.Configuration, "Accessory.API"
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddVehicleSwaggerSecurity(
+        "Accessory Service API",
+        "v1",
+        "Vehicle E-Commerce Accessories Management Microservice protected by Centralized OIDC / OAuth 2.0.");
+});
 
 builder.Services.AddInfrastructure(builder.Configuration);
 
-var jwtKey = builder.Configuration["Jwt:SecretKey"] ?? "VehicleEcommerce_SuperSecretKey_ForJwtTokenGeneration_2026!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VehicleEcommerce";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "VehicleEcommerce";
-
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-        };
-    });
-
-builder.Services.AddAuthorization();
+// Centralized OIDC & OAuth 2.0 Token Validation & PBAC/RBAC
+builder.Services.AddVehiclePlatformAuthentication(builder.Configuration);
+builder.Services.AddVehiclePlatformAuthorization();
 
 var app = builder.Build();
 
@@ -46,10 +32,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UsePlatformObservability();
 
 app.UseAuthentication();
+app.UseVehicleSecurityAudit();
 app.UseAuthorization();
 
 app.MapControllers();

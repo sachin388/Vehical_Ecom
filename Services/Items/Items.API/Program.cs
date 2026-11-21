@@ -1,9 +1,7 @@
 using Items.Application.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using Items.Infrastructure;
 using VehicleEcom.Observability;
+using VehicleEcom.Security.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,47 +9,21 @@ builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "Items.AP
 builder.Services.AddPlatformObservability(builder.Configuration, "Items.API");
 
 builder.Services.AddControllers();
-
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddVehicleSwaggerSecurity(
+        "Vehicle Catalog & Items Service API",
+        "v1",
+        "Vehicle E-Commerce Catalog & Items Microservice protected by Centralized OIDC / OAuth 2.0.");
+});
 
-builder.Services.AddItemInfrastructure(
-    builder.Configuration);
-
+builder.Services.AddItemInfrastructure(builder.Configuration);
 builder.Services.AddScoped<ItemApplicationService>();
 
-var jwtKey = builder.Configuration["Jwt:SecretKey"]
-    ?? throw new InvalidOperationException(
-        "JWT SecretKey is not configured.");
-
-var jwtIssuer = builder.Configuration["Jwt:Issuer"]
-    ?? throw new InvalidOperationException(
-        "JWT Issuer is not configured.");
-
-var jwtAudience = builder.Configuration["Jwt:Audience"]
-    ?? throw new InvalidOperationException(
-        "JWT Audience is not configured.");
-
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtKey))
-        };
-    });
-
-builder.Services.AddAuthorization();
+// Centralized OIDC & OAuth 2.0 Token Validation & Authorization
+builder.Services.AddVehiclePlatformAuthentication(builder.Configuration);
+builder.Services.AddVehiclePlatformAuthorization();
 
 var app = builder.Build();
 
@@ -62,13 +34,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UsePlatformObservability();
 
 app.UseAuthentication();
+app.UseVehicleSecurityAudit();
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
-

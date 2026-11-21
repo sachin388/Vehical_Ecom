@@ -1,9 +1,12 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Payment.Application.DTOs;
 using Payment.Application.Interfaces;
+using VehicleEcom.Security.Authorization;
+using VehicleEcom.Security.Constants;
 
 namespace Payment.API.Controllers
 {
@@ -24,6 +27,8 @@ namespace Payment.API.Controllers
         /// </summary>
         [HttpPost]
         [HttpPost("initiate")]
+        [Authorize]
+        [HasPermission(VehiclePermissions.PaymentsProcess)]
         public async Task<IActionResult> InitiatePayment(
             [FromBody] InitiatePaymentRequest request,
             [FromHeader(Name = "Idempotency-Key")] string? idempotencyKeyHeader,
@@ -44,6 +49,7 @@ namespace Payment.API.Controllers
         /// Safe and idempotent against duplicate callback submissions.
         /// </summary>
         [HttpPost("callback")]
+        [AllowAnonymous]
         [Consumes("application/x-www-form-urlencoded", "application/json")]
         public async Task<IActionResult> ProcessCallback(
             [FromForm] PayUCallbackPayload formPayload,
@@ -64,6 +70,8 @@ namespace Payment.API.Controllers
         /// Gets payment details by Payment primary key ID.
         /// </summary>
         [HttpGet("{id:long}")]
+        [Authorize]
+        [HasPermission(VehiclePermissions.PaymentsRead)]
         public async Task<IActionResult> GetById(long id, CancellationToken ct)
         {
             var result = await _service.GetByIdAsync(id, ct);
@@ -77,6 +85,8 @@ namespace Payment.API.Controllers
         /// Gets payment details by PayU Transaction ID / Payment Reference (txnid).
         /// </summary>
         [HttpGet("transaction/{txnId}")]
+        [Authorize]
+        [HasPermission(VehiclePermissions.PaymentsRead)]
         public async Task<IActionResult> GetByPaymentReference(string txnId, CancellationToken ct)
         {
             var result = await _service.GetByPaymentReferenceAsync(txnId, ct);
@@ -90,6 +100,8 @@ namespace Payment.API.Controllers
         /// Gets all payment attempts for a given Sales Order.
         /// </summary>
         [HttpGet("order/{salesOrderId:guid}")]
+        [Authorize]
+        [HasPermission(VehiclePermissions.PaymentsRead)]
         public async Task<IActionResult> GetBySalesOrderId(Guid salesOrderId, CancellationToken ct)
         {
             var results = await _service.GetBySalesOrderIdAsync(salesOrderId, ct);
@@ -101,6 +113,8 @@ namespace Payment.API.Controllers
         /// Resilient against temporary server or network drops.
         /// </summary>
         [HttpPost("transaction/{txnId}/verify")]
+        [Authorize]
+        [HasPermission(VehiclePermissions.PaymentsProcess)]
         public async Task<IActionResult> VerifyPayment(string txnId, CancellationToken ct)
         {
             var result = await _service.VerifyPaymentStatusAsync(txnId, ct);
@@ -112,6 +126,8 @@ namespace Payment.API.Controllers
         /// Idempotent across retries using SagaId / Idempotency-Key.
         /// </summary>
         [HttpPost("refund")]
+        [Authorize]
+        [HasPermission(VehiclePermissions.PaymentsRefund)]
         public async Task<IActionResult> RefundPayment(
             [FromBody] RefundPaymentRequest request,
             [FromHeader(Name = "Idempotency-Key")] string? idempotencyKeyHeader,

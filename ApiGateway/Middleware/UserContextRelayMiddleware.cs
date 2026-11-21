@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using VehicleEcom.Security.Constants;
 
 namespace ApiGateway.Middleware;
 
@@ -16,16 +17,37 @@ public class UserContextRelayMiddleware
         if (context.User?.Identity?.IsAuthenticated == true)
         {
             var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                         ?? context.User.FindFirst("sub")?.Value
+                         ?? context.User.FindFirst(VehicleClaimTypes.Subject)?.Value
                          ?? context.User.FindFirst("id")?.Value;
 
             var email = context.User.FindFirst(ClaimTypes.Email)?.Value
-                        ?? context.User.FindFirst("email")?.Value;
+                        ?? context.User.FindFirst(VehicleClaimTypes.Email)?.Value;
 
             var roles = context.User.FindAll(ClaimTypes.Role)
+                .Concat(context.User.FindAll(VehicleClaimTypes.Role))
                 .Concat(context.User.FindAll("role"))
+                .Concat(context.User.FindAll("roles"))
                 .Select(c => c.Value)
-                .Distinct();
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var permissions = context.User.FindAll(VehicleClaimTypes.Permission)
+                .Concat(context.User.FindAll("permission"))
+                .Concat(context.User.FindAll("permissions"))
+                .Select(c => c.Value)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!permissions.Any() && roles.Any())
+            {
+                permissions = RolePermissionDefaults.GetPermissionsForRoles(roles).ToList();
+            }
+
+            var clientId = context.User.FindFirst(VehicleClaimTypes.ClientId)?.Value
+                           ?? context.User.FindFirst("client_id")?.Value;
+
+            var clientType = context.User.FindFirst(VehicleClaimTypes.ClientType)?.Value
+                             ?? context.User.FindFirst("client_type")?.Value;
 
             if (!string.IsNullOrEmpty(userId))
             {
@@ -37,10 +59,24 @@ public class UserContextRelayMiddleware
                 context.Request.Headers["X-User-Email"] = email;
             }
 
-            var rolesString = string.Join(",", roles);
-            if (!string.IsNullOrEmpty(rolesString))
+            if (roles.Any())
             {
-                context.Request.Headers["X-User-Roles"] = rolesString;
+                context.Request.Headers["X-User-Roles"] = string.Join(",", roles);
+            }
+
+            if (permissions.Any())
+            {
+                context.Request.Headers["X-User-Permissions"] = string.Join(",", permissions);
+            }
+
+            if (!string.IsNullOrEmpty(clientId))
+            {
+                context.Request.Headers["X-Client-Id"] = clientId;
+            }
+
+            if (!string.IsNullOrEmpty(clientType))
+            {
+                context.Request.Headers["X-Client-Type"] = clientType;
             }
         }
 

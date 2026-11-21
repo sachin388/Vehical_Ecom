@@ -1,53 +1,26 @@
-using System.Text;
 using Confluent.Kafka;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using SalesOrder.Application.Services;
 using SalesOrder.Infrastructure;
 using SalesOrder.Infrastructure.Messaging;
 using VehicleEcom.Observability;
+using VehicleEcom.Security.Constants;
+using VehicleEcom.Security.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddPlatformOpenTelemetryLogging(builder.Configuration, "SalesOrder.API");
 builder.Services.AddPlatformObservability(builder.Configuration, "SalesOrder.API");
 
-// 1. JWT Authentication
-var jwtKey = builder.Configuration["Jwt:SecretKey"] ?? "VehicleEcommerce_SuperSecretKey_ForJwtTokenGeneration_2026!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VehicleEcommerce";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "VehicleEcommerce";
+// 1. Centralized OIDC / OAuth 2.0 JWT Authentication & PBAC/RBAC Authorization
+builder.Services.AddVehiclePlatformAuthentication(builder.Configuration);
+builder.Services.AddVehiclePlatformAuthorization();
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        if (!string.IsNullOrEmpty(builder.Configuration["Authentication:Authority"]))
-        {
-            options.Authority = builder.Configuration["Authentication:Authority"];
-            options.Audience = builder.Configuration["Authentication:Audience"];
-            options.RequireHttpsMetadata = true;
-        }
-
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-            ClockSkew = TimeSpan.FromSeconds(30)
-        };
-    });
-
-// 2. Authorization policy for internal service calls
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("InternalService", policy =>
-        policy.RequireAuthenticatedUser()
-              .RequireClaim("scope", "salesorder.internal"));
-});
+// 2. Service-to-Service M2M Client for Inter-Service Communication
+builder.Services.AddServiceTokenClient(
+    builder.Configuration,
+    clientId: "salesorder-service",
+    clientSecret: "SalesOrderServiceSecret2026!",
+    defaultScope: VehicleScopes.SalesOrderInternal);
 
 // 3. Infrastructure & Services
 builder.Services.AddSalesOrderInfrastructure(builder.Configuration);
@@ -76,7 +49,13 @@ builder.Services.AddSingleton<KafkaDeadLetterPublisher>();
 // 6. Controllers & Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddVehicleSwaggerSecurity(
+        "Sales Order Service API",
+        "v1",
+        "Vehicle E-Commerce Sales Order Management Microservice with Centralized OIDC / OAuth 2.0 Protection.");
+});
 
 var app = builder.Build();
 
@@ -87,10 +66,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UsePlatformObservability();
 
 app.UseAuthentication();
+app.UseVehicleSecurityAudit();
 app.UseAuthorization();
 
 app.MapControllers();

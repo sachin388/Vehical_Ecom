@@ -1,12 +1,16 @@
-﻿using Dealer.Application.DTOs;
+using Dealer.Application.DTOs;
 using Dealer.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using VehicleEcom.Security.Authorization;
+using VehicleEcom.Security.Constants;
 
 namespace Dealer.API.Controllers
 {
     [ApiController]
     [Route("api/dealers/orders")]
+    [Authorize]
     public sealed class DealerOrdersController : ControllerBase
     {
         private readonly DealerApplicationService _service;
@@ -16,6 +20,7 @@ namespace Dealer.API.Controllers
 
         // POST /api/dealers/orders/assign
         [HttpPost("assign")]
+        [HasPermission(VehiclePermissions.OrdersManage)]
         [ProducesResponseType(typeof(DealerAssignmentResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -57,6 +62,7 @@ namespace Dealer.API.Controllers
 
         // GET /api/dealers/orders/{salesOrderId}
         [HttpGet("{salesOrderId:guid}")]
+        [HasPermission(VehiclePermissions.OrdersRead)]
         [ProducesResponseType(typeof(DealerAssignmentResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<DealerAssignmentResponse>> GetBySalesOrder(
@@ -71,6 +77,7 @@ namespace Dealer.API.Controllers
 
         // PATCH /api/dealers/orders/{salesOrderId}/status
         [HttpPatch("{salesOrderId:guid}/status")]
+        [HasPermission(VehiclePermissions.OrdersManage)]
         [ProducesResponseType(typeof(DealerAssignmentResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -112,5 +119,4 @@ namespace Dealer.API.Controllers
             }
         }
     }
-
 }

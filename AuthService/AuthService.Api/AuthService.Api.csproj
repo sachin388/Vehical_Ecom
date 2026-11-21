@@ -22,6 +22,7 @@
     <ProjectReference Include="..\AuthService.Application\AuthService.Application.csproj" />
     <ProjectReference Include="..\AuthService.Infrastructure\AuthService.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Shared\VehicleEcom.Observability\VehicleEcom.Observability.csproj" />
+    <ProjectReference Include="..\..\Shared\VehicleEcom.Security\VehicleEcom.Security.csproj" />
   </ItemGroup>
 
 </Project>
